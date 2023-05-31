@@ -44,11 +44,13 @@ impl<'a, 'tcx, V: CodegenObject> PlaceRef<'tcx, V> {
 
     // FIXME(eddyb) pass something else for the name so no work is done
     // unless LLVM IR names are turned on (e.g. for `--emit=llvm-ir`).
+    #[instrument(level = "debug", skip(bx))]
     pub fn alloca<Bx: BuilderMethods<'a, 'tcx, Value = V>>(
         bx: &mut Bx,
         layout: TyAndLayout<'tcx>,
     ) -> Self {
         assert!(layout.is_sized(), "tried to statically allocate unsized place");
+        debug!("alloca in place.rs with type {:?}", layout.ty);
         let tmp = bx.alloca(bx.cx().backend_type(layout), layout.align.abi);
         Self::new_sized(tmp, layout)
     }

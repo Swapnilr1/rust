@@ -425,7 +425,9 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         val
     }
 
+    #[instrument(level = "debug", skip(self))]
     fn alloca(&mut self, ty: &'ll Type, align: Align) -> &'ll Value {
+        debug!("Found alloca with type {:?} ", ty);
         let mut bx = Builder::with_cx(self.cx);
         bx.position_at_start(unsafe { llvm::LLVMGetFirstBasicBlock(self.llfn()) });
         unsafe {

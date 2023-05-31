@@ -10,7 +10,7 @@ mod engine;
 pub mod error_reporting;
 mod fulfill;
 pub mod misc;
-mod object_safety;
+pub mod object_safety;
 pub mod outlives_bounds;
 mod project;
 pub mod query;

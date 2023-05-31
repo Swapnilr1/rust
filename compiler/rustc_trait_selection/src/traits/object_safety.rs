@@ -654,7 +654,7 @@ fn receiver_for_self_ty<'tcx>(
 /// if the current trait is `Deref`, then this will be
 /// `dyn Deref<Target = Self::Target> + 'static`.
 #[instrument(level = "trace", skip(tcx), ret)]
-fn object_ty_for_trait<'tcx>(
+pub fn object_ty_for_trait<'tcx>(
     tcx: TyCtxt<'tcx>,
     trait_def_id: DefId,
     lifetime: ty::Region<'tcx>,

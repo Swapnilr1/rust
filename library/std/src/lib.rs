@@ -253,6 +253,7 @@
 #![feature(doc_notable_trait)]
 #![feature(dropck_eyepatch)]
 #![feature(exhaustive_patterns)]
+#![cfg_attr(not(bootstrap), feature(bronze_gc))]
 #![feature(if_let_guard)]
 #![feature(intra_doc_pointers)]
 #![feature(lang_items)]
@@ -528,6 +529,8 @@ pub mod env;
 pub mod error;
 pub mod ffi;
 pub mod fs;
+#[unstable(feature = "bronze_gc", issue = "none")]
+pub mod gc;
 pub mod io;
 pub mod net;
 pub mod num;

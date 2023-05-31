@@ -175,6 +175,9 @@ language_item_table! {
     CoerceUnsized,           sym::coerce_unsized,      coerce_unsized_trait,       Target::Trait,          GenericRequirement::Minimum(1);
     DispatchFromDyn,         sym::dispatch_from_dyn,   dispatch_from_dyn_trait,    Target::Trait,          GenericRequirement::Minimum(1);
 
+    GcTrace,                 sym::gctrace,             gctrace_trait,              Target::Trait,          GenericRequirement::None;
+    GcFinalize,              sym::gcfinalize,          gcfinalize_trait,           Target::Trait,          GenericRequirement::None;
+
     // language items relating to transmutability
     TransmuteOpts,           sym::transmute_opts,      transmute_opts,             Target::Struct,         GenericRequirement::Exact(0);
     TransmuteTrait,          sym::transmute_trait,     transmute_trait,            Target::Trait,          GenericRequirement::Exact(3);
