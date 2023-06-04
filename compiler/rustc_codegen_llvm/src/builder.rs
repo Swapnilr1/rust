@@ -485,12 +485,12 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
             // Maybe via hir::def_id()
             let gc_ref_def_id = tcx.require_lang_item(LangItem::GcTrace, None);
             debug!("gctrace trait def ID: {:?}", gc_ref_def_id);
-            let trait_object_ty = object_ty_for_trait(tcx, gc_ref_def_id, tcx.mk_region(ty::ReStatic));
+            let trait_object_ty = object_ty_for_trait(tcx, gc_ref_def_id, tcx.lifetimes.re_static);
             // let trait_object_layout = bx.cx().layout_of(trait_object_ty);
             let trait_ref_ty = tcx.mk_imm_ptr(trait_object_ty);
             let val_ptr_ty = tcx.mk_imm_ptr(rust_type);
 
-            let (_base, info) = rustc_codegen_ssa::base::unsize_thin_ptr(&mut bx, val, val_ptr_ty, trait_ref_ty);
+            let (_base, info) = rustc_codegen_ssa::base::unsize_ptr(&mut bx, val, val_ptr_ty, trait_ref_ty, None);
             // Base and info had both better be pointers.
             // The original alloca should already store the base. We just need to store the info.
             // We'll record it in the metadata.
