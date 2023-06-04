@@ -30,6 +30,10 @@ use std::iter;
 use std::ops::Deref;
 use std::ptr;
 
+use rustc_hir::lang_items::LangItem;
+use rustc_middle::mir::interpret::PointerArithmetic;
+use rustc_trait_selection::traits::object_safety::object_ty_for_trait;
+
 // All Builders must have an llfn associated with them
 #[must_use]
 pub struct Builder<'a, 'll, 'tcx> {
@@ -424,18 +428,161 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         }
         val
     }
-
-    #[instrument(level = "debug", skip(self))]
-    fn alloca(&mut self, ty: &'ll Type, align: Align) -> &'ll Value {
-        debug!("Found alloca with type {:?} ", ty);
+    fn alloca_fat_ptr(&mut self, rust_type: Ty<'tcx>, ty: &'ll Type, align: Align, is_root: bool, is_fat: bool) -> &'ll Value {
+        debug!("alloca with type {:?}", ty);
         let mut bx = Builder::with_cx(self.cx);
         bx.position_at_start(unsafe { llvm::LLVMGetFirstBasicBlock(self.llfn()) });
+        let val = bx.alloca(ty, align, false, false);
+
+        if is_root && !is_fat {
+            debug!("inserting regular gcroot from inside alloca");
+            // Choosing zero will result in not allocating metadata at all.
+            // That would run afoul of gcroot instruction invariants, which require
+            // that metadata be nonnull if the first param might have non-pointer type.
+            let one = bx.cx().const_u8(1);
+            let u8_ptr_type = bx.cx().type_ptr_to(bx.cx().type_i8());
+            let metadata = bx.inttoptr(one, u8_ptr_type);
+
+            bx.gcroot(val, metadata);
+        }
+        else if is_fat {
+            debug!("inserting gcroot with indirect pointer from inside alloca");
+
+            // This is a root, but we need to indirect through a special alloca.
+
+            // The "regular" tracing code expects pointers to GcBoxes.
+            // Since we don't have one of those, the tracer is going to need a fat pointer
+            // to something of type dyn GcTrace.
+            // But all we've got is a pointer to the object iself. 
+            // So, construct a fat pointer (which will include a vtable).
+
+            //let vtable = get_vtable(bx.cx(), rust_ty, ???)
+
+            // let fat_ptr = unsize_thin_ptr(bx, rust_ty, )
+
+
+            // let two = bx.cx().const_u8(2);
+            // let u8_ptr_type = bx.cx().type_ptr_to(bx.cx().type_i8());
+            // let metadata = bx.inttoptr(two, u8_ptr_type);
+
+            // let alloca_ptr_type = bx.type_ptr_to(ty);
+
+            // let ptr_alignment = Align::from_bits(bx.pointer_size().bits()).expect("alignment failure");
+
+            // let indirect_ptr = bx.dynamic_alloca(alloca_ptr_type, ptr_alignment);
+
+            // bx.store(val, indirect_ptr, ptr_alignment);  
+
+
+            let tcx = self.tcx;
+
+            // let gctrace_symbol = rustc_span:symbol::Symbol::intern("GcTrace");
+
+
+            // Want to do something akin to rustc_trait_selection::object_ty_for_trait
+            // But that requires getting a DefId for the trait. How do I find it??
+
+            // Maybe via hir::def_id()
+            let gc_ref_def_id = tcx.require_lang_item(LangItem::GcTrace, None);
+            debug!("gctrace trait def ID: {:?}", gc_ref_def_id);
+            let trait_object_ty = object_ty_for_trait(tcx, gc_ref_def_id, tcx.mk_region(ty::ReStatic));
+            // let trait_object_layout = bx.cx().layout_of(trait_object_ty);
+            let trait_ref_ty = tcx.mk_imm_ptr(trait_object_ty);
+            let val_ptr_ty = tcx.mk_imm_ptr(rust_type);
+
+            let (_base, info) = rustc_codegen_ssa::base::unsize_thin_ptr(&mut bx, val, val_ptr_ty, trait_ref_ty);
+            // Base and info had both better be pointers.
+            // The original alloca should already store the base. We just need to store the info.
+            // We'll record it in the metadata.
+
+
+
+            // let u8_ptr_ptr_type = tcx.mk_imm_ptr(tcx.mk_imm_ptr(tcx.types.u8));
+
+
+
+            // let u8_ptr_ptr_layout = bx.cx().layout_of(u8_ptr_ptr_type);
+            // let alloca_place = PlaceRef::new_sized(val, u8_ptr_ptr_layout);
+            // let fat_ptr_place = PlaceRef::alloca_unsized_indirect(&mut bx, trait_object_layout);     
+            // debug!("alloca_place: {:?}", alloca_place);
+            // debug!("fat_ptr_place: {:?}", fat_ptr_place);
+            // rustc_codegen_ssa::base::coerce_unsized_into(&mut bx, alloca_place, fat_ptr_place);
+            // debug!("fat_ptr_place fater coercion: {:?}", fat_ptr_place);
+
+            bx.gcroot(val, info);
+        }
+        val
+    }
+
+
+    #[instrument(level = "debug", skip(self))]
+    fn alloca(&mut self, ty: &'ll Type, align: Align, is_root: bool, is_fat: bool) -> &'ll Value {
+        debug!("alloca with type {:?}", ty);
+        let mut bx = Builder::with_cx(self.cx);
+        bx.position_at_start(unsafe { llvm::LLVMGetFirstBasicBlock(self.llfn()) });
+        let val = bx.alloca(ty, align, false, false);
+
+        if is_root && !is_fat {
+            debug!("inserting regular gcroot from inside alloca");
+            // Choosing zero will result in not allocating metadata at all.
+            // That would run afoul of gcroot instruction invariants, which require
+            // that metadata be nonnull if the first param might have non-pointer type.
+            let one = bx.cx().const_u8(1);
+            let u8_ptr_type = bx.cx().type_ptr_to(bx.cx().type_i8());
+            let metadata = bx.inttoptr(one, u8_ptr_type);
+
+            bx.gcroot(val, metadata);
+        }
+        else if is_fat {
+            debug!("inserting gcroot with indirect pointer from inside alloca");
+
+            // This is a root, but we need to indirect through a special alloca.
+
+            // We also need to find a pointer to a tracing function to call. 
+            // e.g., _ZN7tiny_gc44_DERIVE_bronze_GcTrace_FOR_TrackedAllocation
+
+            // The "regular" tracing code expects pointers to GcBoxes.
+            // Since we don't have one of those, the tracer is going to need a fat pointer
+            // to something of type dyn GcTrace.
+            // But all we've got is a pointer to the object iself. 
+            // So, construct a fat pointer (which will include a vtable).
+
+
+
+            let two = bx.cx().const_u8(2);
+            let u8_ptr_type = bx.cx().type_ptr_to(bx.cx().type_i8());
+            let metadata = bx.inttoptr(two, u8_ptr_type);
+
+            let alloca_ptr_type = bx.type_ptr_to(ty);
+
+            let ptr_alignment = Align::from_bits(bx.pointer_size().bits()).expect("alignment failure");
+
+            let indirect_ptr = bx.alloca(alloca_ptr_type, ptr_alignment, false, false);
+
+            bx.store(val, indirect_ptr, ptr_alignment);    
+
+
+
+
+            bx.gcroot(indirect_ptr, metadata);
+        }
+
+        val
+    }
+
+    fn gcroot(&mut self, alloca_ptr: &'ll Value, metadata: &'ll Value) -> &'ll Value {
         unsafe {
-            let alloca = llvm::LLVMBuildAlloca(bx.llbuilder, ty, UNNAMED);
-            llvm::LLVMSetAlignment(alloca, align.bytes() as c_uint);
-            alloca
+            debug!("gcroot with alloca_ptr {:?}", alloca_ptr);
+            // TOOD: pass real metadata.
+            // Put the gcroot in the same basic block as the allocation, but at the end.
+
+            let gcroot: &Value =
+                llvm::LLVMRustBuildGcRootIntrinsic(self.llbuilder, alloca_ptr, metadata);
+
+            gcroot
         }
     }
+
 
     fn byte_array_alloca(&mut self, len: &'ll Value, align: Align) -> &'ll Value {
         unsafe {

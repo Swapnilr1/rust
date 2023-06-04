@@ -1950,3 +1950,27 @@ extern "C" int32_t LLVMRustGetElementTypeArgIndex(LLVMValueRef CallSite) {
 extern "C" bool LLVMRustIsBitcode(char *ptr, size_t len) {
   return identify_magic(StringRef(ptr, len)) == file_magic::bitcode;
 }
+
+extern "C" void LLVMRustSetGC(LLVMValueRef V) {
+    unwrap<Function>(V)->setGC("shadow-stack");
+}
+
+// Metadata must be of type i8*.
+extern "C" LLVMValueRef LLVMRustBuildGcRootIntrinsic(LLVMBuilderRef B,
+                                                     LLVMValueRef Alloca_addr,
+                                                     LLVMValueRef Metadata) {
+    Value *Alloca = unwrap(Alloca_addr);
+    Type *i8PtrType = unwrap(B)->getInt8Ty()->getPointerTo(0);
+    Type *i8PtrPtrType = i8PtrType->getPointerTo(0);
+
+    // Alloca is of type i32**. gcroot requires i8**. Let's cast.
+
+    Value *CastAlloca = unwrap(B)->CreateBitCast(Alloca, i8PtrPtrType);
+
+    Value *CastMetadata = unwrap(B)->CreateBitCast(unwrap(Metadata), i8PtrType);
+
+    CallInst *GCRoot = unwrap(B)->CreateIntrinsic(Intrinsic::gcroot, {},
+    {CastAlloca, CastMetadata}); // Alloca for 0th arg
+
+    return wrap(GCRoot);
+}

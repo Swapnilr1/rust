@@ -1675,6 +1675,15 @@ extern "C" {
         OpBundles: *const Option<&OperandBundleDef<'a>>,
         NumOpBundles: c_uint,
     ) -> &'a Value;
+
+    pub fn LLVMRustBuildGcRootIntrinsic<'a>(
+        B: &Builder<'a>,
+        ptrloc: &'a Value,
+        metadata: &'a Value,
+    ) -> &'a Value;
+
+    pub fn LLVMRustSetGC(func: &Value);
+
     pub fn LLVMRustBuildMemCpy<'a>(
         B: &Builder<'a>,
         Dst: &'a Value,

@@ -16,6 +16,8 @@ use std::ffi::{CStr, CString};
 use std::str::FromStr;
 use std::string::FromUtf8Error;
 
+use tracing::debug;
+
 pub mod archive_ro;
 pub mod diagnostic;
 mod ffi;
@@ -34,6 +36,14 @@ impl LLVMRustResult {
 pub fn AddFunctionAttributes<'ll>(llfn: &'ll Value, idx: AttributePlace, attrs: &[&'ll Attribute]) {
     unsafe {
         LLVMRustAddFunctionAttributes(llfn, idx.as_uint(), attrs.as_ptr(), attrs.len());
+    }
+}
+
+
+pub fn SetGC<'a>(func: &'a Value) {
+    unsafe {
+        debug!("calling LLVMRustSetGC on {:?}", func);
+        LLVMRustSetGC(func);
     }
 }
 
