@@ -12,7 +12,7 @@ use rustc_middle::ty::{self, Ty};
 use rustc_target::abi::{Abi, Align, FieldsShape, Int, Pointer, TagEncoding};
 use rustc_target::abi::{VariantIdx, Variants};
 
-use rustc_middle::ty::subst::GenericArgKind;
+//use rustc_middle::ty::subst::GenericArgKind;
 use rustc_middle::ty::TyCtxt;
 use rustc_data_structures::fx::FxHashSet;
 
@@ -46,75 +46,75 @@ impl<'a, 'tcx, V: CodegenObject> PlaceRef<'tcx, V> {
         PlaceRef { llval, llextra: None, layout, align }
     }
 
-    fn analyze_adt(ty: Ty<'_>, tcx: TyCtxt<'tcx>, visited_types: &mut FxHashSet<Ty<'tcx>>) -> (bool, bool) {
+    fn analyze_adt(ty: Ty<'_>, _tcx: TyCtxt<'tcx>, _visited_types: &mut FxHashSet<Ty<'tcx>>) -> (bool, bool) {
         match ty.kind() {
-            ty::Adt(adt_def, substs) => {
-                for variant in adt_def.variants() {
-                    let temp1 = tcx.crate_name(variant.def_id.krate);
-                    let temp2 = variant.ident(tcx);
-                    let crate_name = temp1.as_str();
-                    let variant_name = temp2.name.as_str();
+            // ty::Adt(adt_def, substs) => {
+            //     for variant in adt_def.variants() {
+            //         let temp1 = tcx.crate_name(variant.def_id.krate);
+            //         let temp2 = variant.ident(tcx);
+            //         let crate_name = temp1.as_str();
+            //         let variant_name = temp2.name.as_str();
 
-                    if crate_name == "bronze" && variant_name == "GcRef" {
-                        debug!("found bronze::GcRef in variant {:?} of type {:?}", variant, ty);
-                        if substs.len() == 1 {
-                            match substs.get(0).expect("missing parameter").unpack() {
-                                GenericArgKind::Type(ty_param) => {
-                                    let is_trait = ty_param.is_trait();
-                                    return (true, is_trait)
-                                }
-                                _ => {
-                                    panic!("Unexpected substitution found in GcRef: {:?}", ty);
-                                }
-                            }
-                        }
-                        else {
-                            // I have no idea what this is.
-                            panic!("Wrong number of substitutions found in type {:?}", ty)
-                        }
-                    }
+            //         if crate_name == "bronze" && variant_name == "GcRef" {
+            //             debug!("found bronze::GcRef in variant {:?} of type {:?}", variant, ty);
+            //             if substs.len() == 1 {
+            //                 match substs.get(0).expect("missing parameter").unpack() {
+            //                     GenericArgKind::Type(ty_param) => {
+            //                         let is_trait = ty_param.is_trait();
+            //                         return (true, is_trait)
+            //                     }
+            //                     _ => {
+            //                         panic!("Unexpected substitution found in GcRef: {:?}", ty);
+            //                     }
+            //                 }
+            //             }
+            //             else {
+            //                 // I have no idea what this is.
+            //                 panic!("Wrong number of substitutions found in type {:?}", ty)
+            //             }
+            //         }
 
-                    let fields = &variant.fields;
-
-
-                    for field in fields {
-                        let field_did = field.did;
-                        let field_ty = tcx.type_of(field_did);
-                        if !visited_types.contains(&field_ty.0) {
-                            visited_types.insert(field_ty.0);
-
-                            let (field_is_root, _) = Self::analyze_adt(field_ty.0, tcx, visited_types);
-                            if field_is_root {
-                                debug!("found root field with type {:?}", field_ty.0);
-                                return (true, true) // If the root is buried in a field, generate a pointer to the object. 
-                            }
-                        }
-                        // Otherwise, there's a circular struct dependency, and there will be an error elsewhere.
-                    }
+            //         let fields = &variant.fields;
 
 
-                }
+            //         for field in fields {
+            //             let field_did = field.did;
+            //             let field_ty = tcx.type_of(field_did);
+            //             if !visited_types.contains(&field_ty.0) {
+            //                 visited_types.insert(field_ty.0);
 
-                // Even if none of the variants has a GcRef field, what if there are raw pointers inside
-                // that point to GcRefs? We can detect that case conservatively by looking for GcRef type parameters.
-                // But even if we did, how would we trace these objects? They'd have to be GcTrace.
+            //                 let (field_is_root, _) = Self::analyze_adt(field_ty.0, tcx, visited_types);
+            //                 if field_is_root {
+            //                     debug!("found root field with type {:?}", field_ty.0);
+            //                     return (true, true) // If the root is buried in a field, generate a pointer to the object. 
+            //                 }
+            //             }
+            //             // Otherwise, there's a circular struct dependency, and there will be an error elsewhere.
+            //         }
 
-                // for subst in *substs {
-                //     match subst.unpack() {
-                //         GenericArgKind::Type(ty_param) => {
-                //             let (param_is_root, _param_is_fat) = Self::analyze_adt(ty_param, tcx);
-                //             if param_is_root {
-                //                 debug!("found GcRef in type parameter of {:?}", ty);
-                //                 // Treat anything that isn't just a GcRef as a fat pointer.
-                //                 return (true, true); 
-                //             }
-                //         }
-                //         _ => ()
-                //     }
-                // }
 
-                (false, false)
-            },
+            //     }
+
+            //     // Even if none of the variants has a GcRef field, what if there are raw pointers inside
+            //     // that point to GcRefs? We can detect that case conservatively by looking for GcRef type parameters.
+            //     // But even if we did, how would we trace these objects? They'd have to be GcTrace.
+
+            //     // for subst in *substs {
+            //     //     match subst.unpack() {
+            //     //         GenericArgKind::Type(ty_param) => {
+            //     //             let (param_is_root, _param_is_fat) = Self::analyze_adt(ty_param, tcx);
+            //     //             if param_is_root {
+            //     //                 debug!("found GcRef in type parameter of {:?}", ty);
+            //     //                 // Treat anything that isn't just a GcRef as a fat pointer.
+            //     //                 return (true, true); 
+            //     //             }
+            //     //         }
+            //     //         _ => ()
+            //     //     }
+            //     // }
+
+            //     (false, false)
+            // },
             _ => (false, false)
         }
     }
