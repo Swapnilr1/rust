@@ -138,7 +138,8 @@ pub trait BuilderMethods<'a, 'tcx>:
 
     fn alloca(&mut self, ty: Self::Type, align: Align, is_root: bool, is_fat: bool) -> Self::Value;
     fn alloca_fat_ptr(&mut self, layout: Ty<'tcx>, ty: Self:: Type, align: Align, is_root: bool, is_fat: bool) -> Self::Value;
-    
+    fn dynamic_alloca(&mut self, ty: Self::Type, align: Align) -> Self::Value;
+
     fn byte_array_alloca(&mut self, len: Self::Value, align: Align) -> Self::Value;
 
     fn gcroot(&mut self, alloca_ptr: Self::Value, metadata: Self::Value) -> Self::Value;

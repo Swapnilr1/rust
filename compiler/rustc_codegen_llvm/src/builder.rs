@@ -432,7 +432,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         debug!("alloca with type {:?}", ty);
         let mut bx = Builder::with_cx(self.cx);
         bx.position_at_start(unsafe { llvm::LLVMGetFirstBasicBlock(self.llfn()) });
-        let val = bx.alloca(ty, align, false, false);
+        let val = bx.dynamic_alloca(ty, align);
 
         if is_root && !is_fat {
             debug!("inserting regular gcroot from inside alloca");
@@ -520,7 +520,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         debug!("alloca with type {:?}", ty);
         let mut bx = Builder::with_cx(self.cx);
         bx.position_at_start(unsafe { llvm::LLVMGetFirstBasicBlock(self.llfn()) });
-        let val = bx.alloca(ty, align, false, false);
+        let val = bx.dynamic_alloca(ty, align);
 
         if is_root && !is_fat {
             debug!("inserting regular gcroot from inside alloca");
@@ -557,7 +557,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
 
             let ptr_alignment = Align::from_bits(bx.pointer_size().bits()).expect("alignment failure");
 
-            let indirect_ptr = bx.alloca(alloca_ptr_type, ptr_alignment, false, false);
+            let indirect_ptr = bx.dynamic_alloca(alloca_ptr_type, ptr_alignment);
 
             bx.store(val, indirect_ptr, ptr_alignment);    
 
@@ -568,6 +568,15 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         }
 
         val
+    }
+
+    fn dynamic_alloca(&mut self, ty: &'ll Type, align: Align) -> &'ll Value {
+        debug!("dynamic_alloca with type {:?}", ty);
+        unsafe {
+            let alloca = llvm::LLVMBuildAlloca(self.llbuilder, ty, UNNAMED);
+            llvm::LLVMSetAlignment(alloca, align.bytes() as c_uint);
+            alloca
+        }
     }
 
     fn gcroot(&mut self, alloca_ptr: &'ll Value, metadata: &'ll Value) -> &'ll Value {
