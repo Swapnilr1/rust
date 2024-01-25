@@ -32,7 +32,7 @@ use std::ptr;
 
 use rustc_hir::lang_items::LangItem;
 use rustc_middle::mir::interpret::PointerArithmetic;
-use rustc_trait_selection::traits::object_safety::object_ty_for_trait;
+//use rustc_trait_selection::traits::object_safety::object_ty_for_trait;
 
 // All Builders must have an llfn associated with them
 #[must_use]
@@ -428,6 +428,8 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         }
         val
     }
+
+    #[instrument(level = "debug", skip(self))]
     fn alloca_fat_ptr(&mut self, rust_type: Ty<'tcx>, ty: &'ll Type, align: Align, is_root: bool, is_fat: bool) -> &'ll Value {
         debug!("alloca with type {:?}", ty);
         let mut bx = Builder::with_cx(self.cx);
@@ -485,12 +487,14 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
             // Maybe via hir::def_id()
             let gc_ref_def_id = tcx.require_lang_item(LangItem::GcTrace, None);
             debug!("gctrace trait def ID: {:?}", gc_ref_def_id);
-            let trait_object_ty = object_ty_for_trait(tcx, gc_ref_def_id, tcx.lifetimes.re_static);
+            // let trait_object_ty = object_ty_for_trait(tcx, gc_ref_def_id, tcx.lifetimes.re_static);
             // let trait_object_layout = bx.cx().layout_of(trait_object_ty);
-            let trait_ref_ty = tcx.mk_imm_ptr(trait_object_ty);
-            let val_ptr_ty = tcx.mk_imm_ptr(rust_type);
+            // let trait_ref_ty = tcx.mk_imm_ptr(trait_object_ty);
+            // let val_ptr_ty = tcx.mk_imm_ptr(rust_type);
 
-            let (_base, info) = rustc_codegen_ssa::base::unsize_ptr(&mut bx, val, val_ptr_ty, trait_ref_ty, None);
+            // let (_base, info) = rustc_codegen_ssa::base::unsize_ptr(&mut bx, val, val_ptr_ty, trait_ref_ty, None);
+
+            //debug!("gctrace base: {:?} info: {:?}", _base, info);
             // Base and info had both better be pointers.
             // The original alloca should already store the base. We just need to store the info.
             // We'll record it in the metadata.
@@ -509,7 +513,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
             // rustc_codegen_ssa::base::coerce_unsized_into(&mut bx, alloca_place, fat_ptr_place);
             // debug!("fat_ptr_place fater coercion: {:?}", fat_ptr_place);
 
-            bx.gcroot(val, info);
+            // bx.gcroot(val, info);
         }
         val
     }
